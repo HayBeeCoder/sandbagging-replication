@@ -6,6 +6,7 @@ import yaml
 from dotenv import load_dotenv
 from inspect_ai.model import GenerateConfig, Model, get_model
 
+from sandbag import mocks
 from sandbag.config import ROOT, load_experiment
 
 PROVIDERS = ("mock", "openai-compatible", "anthropic")
@@ -74,6 +75,8 @@ def build_model(key: str) -> Model:
     config = GenerateConfig(**{"max_tokens": load_experiment()["max_tokens"], **spec.generate})
 
     if spec.provider == "mock":
+        if spec.model in mocks.SCRIPTS:  # a scripted fake model, see sandbag/mocks.py
+            return get_model(f"mockllm/{spec.model}", custom_outputs=mocks.SCRIPTS[spec.model], config=config, memoize=False)
         return get_model("mockllm/model", config=config)
     if spec.provider == "anthropic":
         return get_model(f"anthropic/{spec.model}", api_key=api_key, config=config)

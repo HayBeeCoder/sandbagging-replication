@@ -6,6 +6,20 @@ mock:
   role: testing
   notes: Scripted fake model. No GPU, no cost. Used to test the pipeline.
 
+mock_sandbagger:
+  model: sandbagger
+  provider: mock
+  tool_mode: text
+  role: testing
+  notes: Fake model that underperforms on purpose in the sandbagging condition. The pipeline must find a gap.
+
+mock_honest:
+  model: honest
+  provider: mock
+  tool_mode: text
+  role: testing
+  notes: Fake model that always answers correctly. The pipeline must find no gap.
+
 llama31_8b_runpod:
   model: meta-llama/Llama-3.1-8B-Instruct
   provider: openai-compatible
