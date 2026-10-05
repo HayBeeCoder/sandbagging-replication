@@ -17,6 +17,7 @@ REQUIRED = {
     "bash_timeout_seconds": int,
     "max_output_chars": int,
     "sandbox": str,
+    "text_tool_instructions_in": str,
     "unparseable_reply": dict,
 }
 
@@ -35,6 +36,8 @@ def load_experiment(path=None) -> dict:
         raise ValueError("conditions must be [sandbag, counterfactual]")
     if settings["sandbox"] not in ("local", "docker"):
         raise ValueError("sandbox must be 'local' or 'docker'")
+    if settings["text_tool_instructions_in"] not in ("system", "user"):
+        raise ValueError("text_tool_instructions_in must be 'system' or 'user'")
     if not 0 < settings["alpha"] < 1:
         raise ValueError("alpha must be between 0 and 1")
     for name in ("runs_per_condition", "max_steps", "max_tokens", "bash_timeout_seconds"):

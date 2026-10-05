@@ -13,6 +13,10 @@ max_output_chars: 10000       # longer command output is cut off
 
 sandbox: local                # local (RunPod) or docker (where Docker is available)
 
+# Text mode only: which message Apollo's tool-use instructions are added to.
+# Appendix D.1 says "the first message", which for Llama is the system prompt.
+text_tool_instructions_in: system   # system or user
+
 unparseable_reply:            # what to do when a text-mode reply cannot be read as a tool call
   mode: reminder              # reminder or repair
   repair_model: null          # a key from models.yaml; required when mode is repair
