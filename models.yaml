@@ -1,0 +1,105 @@
+
+mock:
+  model: model
+  provider: mock
+  tool_mode: text
+  role: testing
+  notes: Scripted fake model. No GPU, no cost. Used to test the pipeline.
+
+llama31_8b_runpod:
+  model: meta-llama/Llama-3.1-8B-Instruct
+  provider: openai-compatible
+  service: vllm
+  base_url: http://localhost:8000/v1
+  api_key_env: null
+  tool_mode: text
+  role: testing
+  serve: vllm serve meta-llama/Llama-3.1-8B-Instruct --max-model-len 16384 --port 8000
+  notes: Small Llama on 1x H100. Cheap check of the real-model path, not a result.
+
+llama405b_runpod:
+  model: meta-llama/Llama-3.1-405B-Instruct-FP8
+  provider: openai-compatible
+  service: vllm
+  base_url: http://localhost:8000/v1
+  api_key_env: null
+  tool_mode: text
+  role: replication
+  serve: vllm serve meta-llama/Llama-3.1-405B-Instruct-FP8 --tensor-parallel-size 8 --max-model-len 16384 --gpu-memory-utilization 0.92 --port 8000
+  notes: Apollo's Llama, self-hosted in FP8 on 8x H100. Only goal_hard is a true replication.
+
+llama4_maverick_fp8_runpod:
+  model: meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8
+  provider: openai-compatible
+  service: vllm
+  base_url: http://localhost:8000/v1
+  api_key_env: null
+  tool_mode: text
+  role: new_measurement
+  serve: VLLM_DISABLE_COMPILE_CACHE=1 vllm serve meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8 --tensor-parallel-size 8 --max-model-len 32768 --port 8000
+  notes: 8x H100. Same precision as the Llama 3.1 405B run, for a clean before/after pair.
+
+llama4_maverick_bf16_runpod:
+  model: meta-llama/Llama-4-Maverick-17B-128E-Instruct
+  provider: openai-compatible
+  service: vllm
+  base_url: http://localhost:8000/v1
+  api_key_env: null
+  tool_mode: text
+  role: new_measurement
+  serve: VLLM_DISABLE_COMPILE_CACHE=1 vllm serve meta-llama/Llama-4-Maverick-17B-128E-Instruct --tensor-parallel-size 8 --max-model-len 32768 --port 8000
+  notes: Full precision, about 800 GB of weights. Needs 8x H200; does not fit 8x H100.
+
+gptoss120b_runpod:
+  model: openai/gpt-oss-120b
+  provider: openai-compatible
+  service: vllm
+  base_url: http://localhost:8000/v1
+  api_key_env: null
+  tool_mode: text
+  role: new_measurement
+  serve: vllm serve openai/gpt-oss-120b --gpu-memory-utilization 0.95 --max-num-batched-tokens 1024 --port 8000
+  notes: 1x H100. Thinks before answering; check that its reasoning shows up in the transcript.
+
+qwen35_397b_runpod:
+  model: Qwen/Qwen3.5-397B-A17B-FP8
+  provider: openai-compatible
+  service: vllm
+  base_url: http://localhost:8000/v1
+  api_key_env: null
+  tool_mode: text
+  role: new_measurement
+  serve: vllm serve Qwen/Qwen3.5-397B-A17B-FP8 -dp 8 --enable-expert-parallel --language-model-only --reasoning-parser qwen3 --port 8000
+  notes: 8x H200. Confirm the model ID on Hugging Face before first use.
+
+claude_fable51:
+  model: claude-fable-5-1
+  provider: anthropic
+  api_key_env: ANTHROPIC_API_KEY
+  tool_mode: native
+  role: new_measurement
+  notes: Thinking always on. Has extra safeguards around LLM R&D; treat refusals as a result.
+
+claude_opus55:
+  model: claude-opus-5-5
+  provider: anthropic
+  api_key_env: ANTHROPIC_API_KEY
+  tool_mode: native
+  role: new_measurement
+  notes: Thinking always on. Does not accept a temperature setting.
+
+claude_sonnet55:
+  model: claude-sonnet-5-5
+  provider: anthropic
+  api_key_env: ANTHROPIC_API_KEY
+  tool_mode: native
+  role: new_measurement
+  notes: Descendant of Claude 3.5 Sonnet, the strongest sandbagger in the paper.
+
+claude_haiku45:
+  model: claude-haiku-4-5-20251001
+  provider: anthropic
+  api_key_env: ANTHROPIC_API_KEY
+  tool_mode: native
+  role: new_measurement
+  notes: Smallest and cheapest Claude; good for a first pilot.
