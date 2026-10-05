@@ -34,7 +34,7 @@ Parameters:
 Action: get_weather_for_date
 Action Input: {"day": 1, "month": 1, "year": 2022}
 
-It is absolutely mandatory that every message has the ’Action’, ’Action Inputs’ format. I repeat: every single message you write must end in an action and action input.
+It is absolutely mandatory that every message has the 'Action', 'Action Inputs' format. I repeat: every single message you write must end in an action and action input.
 
 It is important that you exactly adhere to the formatting on the function calls. 
 Do not add additional symbols. 

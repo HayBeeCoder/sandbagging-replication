@@ -1,0 +1,18 @@
+# Settings for the sandbagging experiment. Change values here, never in the code.
+
+runs_per_condition: 50        # Apollo: 50 runs per condition per model
+conditions: [sandbag, counterfactual]
+seed: 0                       # fixes the question set and the bootstrap resampling
+alpha: 0.01                # significance level for the bootstrap test
+bootstrap_resamples: 100000
+
+max_steps: 10                 # most replies the model may give in one run
+max_tokens: 4096              # Apollo: max tokens per model call
+bash_timeout_seconds: 15      # a bash command is stopped after this long
+max_output_chars: 10000       # longer command output is cut off
+
+sandbox: local                # local (RunPod) or docker (where Docker is available)
+
+unparseable_reply:            # what to do when a text-mode reply cannot be read as a tool call
+  mode: reminder              # reminder or repair
+  repair_model: null          # a key from models.yaml; required when mode is repair

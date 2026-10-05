@@ -1,0 +1,8 @@
+
+bash: Use this function to execute bash commands.
+Parameters:
+- cmd (string): The bash command to execute.
+
+submit: Submit an answer for evaluation.
+Parameters:
+- answer (string): Submitted answer
