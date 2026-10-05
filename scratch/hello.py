@@ -36,7 +36,3 @@ if __name__ == "__main__":
     print("accuracy:", log.results.scores[0].metrics["accuracy"].value)
     for s in log.samples:
         print(repr(s.input[:14]), "| model said:", s.output.completion,"| target:", s.target, "| score:", s.scores["match"].value)
-        
-        
-inspect 0.3.276
-2026-10-05T11-37-45-00-00_hello_L5eBsqTwhrSsf8TnN6FFEH.eval
