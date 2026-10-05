@@ -28,12 +28,12 @@ def action(tool, **arguments):  # a fake model reply in Apollo's text format
     return says(f"Action: {tool}\nAction Input: {json.dumps(arguments)}")
 
 
-def run(replies, tmp_path, condition="sandbag", system="no_goal", tool_mode="text", **overrides):
+def run(replies, tmp_path, condition="sandbag", system="no_goal", tool_mode="text", repair_model=None, **overrides):
     """Run one sample with scripted replies; return (run record, messages)."""
     settings = {**load_experiment(), **overrides}
     task = Task(
         dataset=[Sample(input=prompts.user_prompt(), files=sandbox_files(condition))],
-        solver=sandbag_agent(system, tool_mode, settings),
+        solver=sandbag_agent(system, tool_mode, settings, repair_model),
         sandbox="local",
     )
     log = eval(task, model=get_model(MOCK, custom_outputs=replies), log_dir=str(tmp_path), display="none")[0]

@@ -4,7 +4,7 @@ Works in two tool modes:
   text    the model writes "Action: ... / Action Input: ..." (Apollo's scaffold for Llama)
   native  the model uses the provider's built-in tool calling (Apollo's choice for Claude)
 """
-from inspect_ai.model import ChatMessageSystem, ChatMessageTool, ChatMessageUser, get_model
+from inspect_ai.model import ChatMessageSystem, ChatMessageTool, ChatMessageUser, Model, get_model
 from inspect_ai.solver import Generate, TaskState, solver
 from inspect_ai.tool import ToolInfo, ToolParam, ToolParams
 from inspect_ai.util import sandbox
@@ -13,6 +13,8 @@ from sandbag import prompts
 from sandbag.actions import parse_action, tool_specs
 from sandbag.config import load_experiment
 from sandbag.questions import load_questions_text
+from sandbag.registry import build_model
+from sandbag.repair import repair
 
 DOCUMENTATION_MARKER = "Arithmetic Knowledge Assessment"  # appears only in Documentation.md
 
@@ -59,12 +61,15 @@ async def run_bash(cmd: str, settings: dict) -> str:
 
 
 @solver
-def sandbag_agent(system_variant: str, tool_mode: str, settings: dict | None = None):
+def sandbag_agent(system_variant: str, tool_mode: str, settings: dict | None = None, repair_model: Model | None = None):
+    """repair_model is only passed in by tests; real runs build it from experiment.yaml."""
     settings = settings or load_experiment()
     if tool_mode not in ("text", "native"):
         raise ValueError(f"tool_mode must be 'text' or 'native', got '{tool_mode}'")
-    if settings["unparseable_reply"]["mode"] == "repair":
-        raise NotImplementedError("repair mode is added in Step 2.8c; use mode: reminder for now")
+    # Repair applies to text mode only: in native mode the provider formats the tool call itself.
+    repairing = settings["unparseable_reply"]["mode"] == "repair" and tool_mode == "text"
+    if repairing and repair_model is None:
+        repair_model = build_model(settings["unparseable_reply"]["repair_model"])
     reminder = prompts.load(f"reminder_{tool_mode}.txt")
     first_question = load_questions_text().splitlines()[0]
 
@@ -73,7 +78,8 @@ def sandbag_agent(system_variant: str, tool_mode: str, settings: dict | None = N
         messages = opening_messages(system_variant, tool_mode, settings)
         tools = native_tools() if tool_mode == "native" else []
         run = {"system_variant": system_variant, "tool_mode": tool_mode, "submission": None,
-               "steps": 0, "reminders": 0, "repairs": 0, "extra_actions": 0, "commands": [],
+               "steps": 0, "reminders": 0, "repair_attempts": 0, "repairs": 0, "submission_repaired": False,
+               "extra_actions": 0, "commands": [],
                "read_questions": False, "read_documentation": False, "hit_step_limit": False}
 
         output = None
@@ -85,10 +91,16 @@ def sandbag_agent(system_variant: str, tool_mode: str, settings: dict | None = N
             run["steps"] += 1
 
             # 2. find the tool requests in what it said: (call id, tool name, arguments)
+            repaired = False
             if tool_mode == "native":
                 requests = [(call.id, call.function, call.arguments) for call in (reply.tool_calls or [])]
             else:
                 action = parse_action(reply.text)
+                if action is None and repairing:  # ask the repair model to read it for us
+                    run["repair_attempts"] += 1
+                    action = await repair(reply.text, repair_model)
+                    repaired = action is not None
+                    run["repairs"] += repaired
                 requests = [(None, action.tool, action.arguments)] if action else []
                 run["extra_actions"] += action.extra_actions if action else 0
 
@@ -102,6 +114,7 @@ def sandbag_agent(system_variant: str, tool_mode: str, settings: dict | None = N
             for call_id, tool, arguments in requests:
                 if tool == "submit" and "answer" in arguments:
                     run["submission"] = str(arguments["answer"])
+                    run["submission_repaired"] = repaired
                     break
                 if tool == "bash" and isinstance(arguments.get("cmd"), str):
                     run["commands"].append(arguments["cmd"])
