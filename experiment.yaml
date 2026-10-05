@@ -18,5 +18,5 @@ sandbox: local                # local (RunPod) or docker (where Docker is availa
 text_tool_instructions_in: system   # system or user
 
 unparseable_reply:            # what to do when a text-mode reply cannot be read as a tool call
-  mode: reminder              # reminder or repair
-  repair_model: null          # a key from models.yaml; required when mode is repair
+  mode: repair              # reminder or repair
+  repair_model: gpt4o_mini_openrouter        # a key from models.yaml; required when mode is repair; kept as null if mode is reminder

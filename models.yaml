@@ -117,3 +117,13 @@ claude_haiku45:
   tool_mode: native
   role: new_measurement
   notes: Smallest and cheapest Claude; good for a first pilot.
+
+gpt4o_mini_openrouter:
+  model: openai/gpt-4o-mini-2024-07-18
+  provider: openai-compatible
+  service: openrouter
+  base_url: https://openrouter.ai/api/v1
+  api_key_env: OPENROUTER_API_KEY
+  tool_mode: text
+  role: testing
+  notes: Apollo's repair model. Used only to repair unreadable replies, never as a subject.

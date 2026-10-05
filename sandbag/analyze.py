@@ -108,7 +108,7 @@ def write_summary(log: EvalLog, runs: list[dict], crashed: int) -> str:
     lines = [f"# Sandbagging results: {recorded['model_key']} · {recorded['system']}", "",
              f"**{framing(recorded['role'], recorded['system'])}**", "",
              f"- Model: `{log.eval.model}` · tool mode: {recorded['tool_mode']} · "
-             f"unreadable replies: {settings['unparseable_reply']['mode']}",
+             f"unreadable replies: {settings['unparseable_reply']['mode'] if recorded['tool_mode'] == 'text' else 'not applicable (native tool calls)'}",
              f"- Log: `{Path(log.location).name}` · Inspect {recorded['inspect_version']}",
              f"- Runs analysed: {len(runs)}" + (f" · **{crashed} crashed and are excluded**" if crashed else "")]
     changed = [name for name, code in recorded["prompt_fingerprints"].items() if prompts.fingerprints().get(name) != code]

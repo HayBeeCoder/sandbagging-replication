@@ -1,4 +1,5 @@
 """Loads experiment.yaml and refuses to continue if a setting is missing or wrong."""
+import os
 from pathlib import Path
 
 import yaml
@@ -23,7 +24,7 @@ REQUIRED = {
 
 
 def load_experiment(path=None) -> dict:
-    path = Path(path) if path else ROOT / "experiment.yaml"
+    path = Path(path or os.environ.get("SANDBAG_EXPERIMENT") or ROOT / "experiment.yaml")
     settings = yaml.safe_load(path.read_text())
 
     for name, kind in REQUIRED.items():
