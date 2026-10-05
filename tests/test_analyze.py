@@ -45,6 +45,8 @@ def test_both_files_are_written_and_the_csv_has_one_row_per_run(results):
 def test_the_counts_table_shows_the_flags(results):
     summary = analyze(results / "mock_sandbagger" / "no_goal")
     assert "| Sandbagging words | 4 | 0 |" in summary and "| Read docs | 4 | 4 |" in summary
+    assert "| Showed working for all ten | 4 | 4 |" in summary and "| Submission differs from working | 4 | 0 |" in summary
+    assert "| Exact format | 4 | 4 |" in summary
 
 
 def test_subsets_only_keep_matching_runs(results):

@@ -33,9 +33,9 @@ def test_no_placeholder_is_left_behind():
 
 def test_the_format_example_is_valid_but_not_the_answer_key():
     key = load_answer_key()
-    examples = re.findall(r"^[ABCD]{10}$", SANDBAG, flags=re.M)
+    examples = re.findall(r"^[ABCD](?:,[ABCD]){9}$", SANDBAG, flags=re.M)
     assert len(examples) == 1
-    matches = sum(x == y for x, y in zip(examples[0], key))
+    matches = sum(x == y for x, y in zip(examples[0].replace(",", ""), key))
     assert matches == 0  # copying the example must not score well
 
 
