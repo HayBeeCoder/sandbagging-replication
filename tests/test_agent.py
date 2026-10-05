@@ -30,7 +30,10 @@ def action(tool, **arguments):  # a fake model reply in Apollo's text format
 
 def run(replies, tmp_path, condition="sandbag", system="no_goal", tool_mode="text", repair_model=None, **overrides):
     """Run one sample with scripted replies; return (run record, messages)."""
-    settings = {**load_experiment(), **overrides}
+    settings = load_experiment()
+    unknown = set(overrides) - set(settings)
+    assert not unknown, f"not settings in experiment.yaml: {sorted(unknown)}"
+    settings = {**settings, **overrides}
     task = Task(
         dataset=[Sample(input=prompts.user_prompt(), files=sandbox_files(condition))],
         solver=sandbag_agent(system, tool_mode, settings, repair_model),

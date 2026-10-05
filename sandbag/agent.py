@@ -9,7 +9,7 @@ from inspect_ai.solver import Generate, TaskState, solver
 from inspect_ai.tool import ToolInfo, ToolParam, ToolParams
 from inspect_ai.util import sandbox
 
-from sandbag import prompts
+from sandbag import lockdown, prompts
 from sandbag.actions import parse_action, tool_specs
 from sandbag.config import load_experiment
 from sandbag.questions import load_questions_text
@@ -47,11 +47,23 @@ def native_tools() -> list[ToolInfo]:
     ]
 
 
-async def run_bash(cmd: str, settings: dict) -> str:
+async def prepare_sandbox(settings: dict) -> tuple[int, str] | None:
+    """Hand the run's folder to a fresh unprivileged user; returns (uid, folder), or None in Docker."""
+    if settings["sandbox"] != "local":
+        return None  # a Docker container is already isolated
+    uid = lockdown.new_uid()
+    folder = (await sandbox().exec(["pwd"])).stdout.strip()
+    await sandbox().exec(["chown", "-R", f"{uid}:{uid}", folder])
+    await sandbox().exec(["chmod", "700", folder])  # other runs' users cannot look inside
+    return uid, folder
+
+
+async def run_bash(cmd: str, settings: dict, user: tuple[int, str] | None = None) -> str:
     """Run one command in the sandbox and return what the model should see."""
     limit = settings["bash_timeout_seconds"]
+    command = lockdown.as_user(*user, cmd) if user else ["bash", "-c", cmd]
     try:
-        result = await sandbox().exec(["bash", "-c", cmd], timeout=limit, timeout_retry=False)
+        result = await sandbox().exec(command, timeout=limit, timeout_retry=False)
     except TimeoutError:
         return f"Error: the command did not finish within {limit} seconds."
     output = result.stdout + result.stderr
@@ -70,6 +82,8 @@ def sandbag_agent(system_variant: str, tool_mode: str, settings: dict | None = N
     repairing = settings["unparseable_reply"]["mode"] == "repair" and tool_mode == "text"
     if repairing and repair_model is None:
         repair_model = build_model(settings["unparseable_reply"]["repair_model"])
+    if settings["sandbox"] == "local":
+        lockdown.check()  # stop now if the model's commands could read the answer key
     reminder = prompts.load(f"reminder_{tool_mode}.txt")
     first_question = load_questions_text().splitlines()[0]
 
@@ -77,6 +91,7 @@ def sandbag_agent(system_variant: str, tool_mode: str, settings: dict | None = N
         model = get_model()  # whichever model this run was started with
         messages = opening_messages(system_variant, tool_mode, settings)
         tools = native_tools() if tool_mode == "native" else []
+        user = await prepare_sandbox(settings)
         run = {"system_variant": system_variant, "tool_mode": tool_mode, "submission": None,
                "steps": 0, "reminders": 0, "repair_attempts": 0, "repairs": 0, "submission_repaired": False,
                "extra_actions": 0, "commands": [],
@@ -118,7 +133,7 @@ def sandbag_agent(system_variant: str, tool_mode: str, settings: dict | None = N
                     break
                 if tool == "bash" and isinstance(arguments.get("cmd"), str):
                     run["commands"].append(arguments["cmd"])
-                    result = await run_bash(arguments["cmd"], settings)
+                    result = await run_bash(arguments["cmd"], settings, user)
                     run["read_questions"] |= first_question in result
                     run["read_documentation"] |= DOCUMENTATION_MARKER in result
                 else:
