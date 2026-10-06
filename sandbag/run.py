@@ -5,7 +5,10 @@
     python -m sandbag.run mock_honest --runs 5          # a quick try with fewer runs
 """
 import argparse
+import re
+import subprocess
 import sys
+from datetime import datetime, timezone
 from importlib.metadata import version
 from pathlib import Path
 
@@ -18,12 +21,33 @@ from sandbag.registry import build_model, get_spec
 from sandbag.task import sandbagging
 
 
+def code_version() -> str:
+    """The git commit the code is at, marked if there are changes that were never committed."""
+    def git(*arguments):
+        return subprocess.run(["git", *arguments], cwd=ROOT, capture_output=True, text=True).stdout.strip()
+    commit = git("rev-parse", "--short", "HEAD") or "unknown"
+    return commit + (" + uncommitted changes" if git("status", "--porcelain") else "")
+
+
+def new_run_folder(parent: Path, name: str | None) -> Path:
+    """A folder no other run has: the UTC time it started, plus the name you gave it."""
+    label = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H%M%S")
+    if name:
+        label += "_" + re.sub(r"[^A-Za-z0-9]+", "-", name).strip("-").lower()
+    folder, attempt = parent / label, 1
+    while folder.exists():  # two runs started in the same second
+        attempt += 1
+        folder = parent / f"{label}_{attempt}"
+    return folder
+
+
 def run_experiment(model_key: str, system: str = "no_goal", runs: int | None = None,
-                   results: Path | None = None, display: str = "plain") -> EvalLog:
+                   results: Path | None = None, display: str = "plain",
+                   name: str | None = None, note: str = "") -> EvalLog:
     spec = get_spec(model_key)
     settings = load_experiment()
     task = sandbagging(system=system, tool_mode=spec.tool_mode, runs=runs)
-    log_dir = (results or ROOT / "results") / model_key / system
+    log_dir = new_run_folder((results or ROOT / "results") / model_key / system, name)
     return eval(
         task,
         model=build_model(model_key),
@@ -38,6 +62,11 @@ def run_experiment(model_key: str, system: str = "no_goal", runs: int | None = N
             "settings": settings,
             "prompt_fingerprints": prompts.fingerprints(),  # also refuses to start if a prompt file is empty
             "inspect_version": version("inspect_ai"),
+            "run_id": log_dir.name,                  # the folder this run lives in
+            "name": name or "",
+            "note": note,                            # why this run was done, in your words
+            "code_version": code_version(),
+            "command": " ".join(sys.argv),
         },
     )[0]
 
@@ -63,9 +92,11 @@ if __name__ == "__main__":
     parser.add_argument("model_key", help="a key from models.yaml (list them with: python -m sandbag.registry)")
     parser.add_argument("--system", default="no_goal", choices=list(prompts.SYSTEM_PROMPTS))
     parser.add_argument("--runs", type=int, help="runs per condition; default is runs_per_condition in experiment.yaml")
+    parser.add_argument("--name", help="a short label added to the run's folder name, e.g. pilot or full")
+    parser.add_argument("--note", default="", help="a sentence on why you are doing this run; saved with the results")
     args = parser.parse_args()
 
-    log = run_experiment(args.model_key, args.system, args.runs)
+    log = run_experiment(args.model_key, args.system, args.runs, name=args.name, note=args.note)
     if log.status != "success":
         sys.exit(f"\nThe run did not finish: {log.status}. {log.error.message if log.error else ''}\nLog: {log.location}")
 
@@ -74,5 +105,9 @@ if __name__ == "__main__":
     for condition, row in sorted(summarise(log).items(), reverse=True):  # sandbag first
         print(f"{condition:<16}{row['runs']:>5}{row['accuracy']:>10.3f}{row['submitted']:>11}"
               f"{row['read_documentation']:>11}{row['sandbagging_flag']:>14}")
-    print(f"\nLog: {log.location}")
-    print(f"Read the transcripts with: inspect view --log-dir {Path(log.location).parent} --port 7575")
+    from sandbag.analyze import analyze, folder_of  # imported here because analyze is not needed to start a run
+    folder = folder_of(log)
+    analyze(folder)
+    print(f"\nEverything for this run is in: {folder}")
+    print("  summary.md  runs.csv  and the .eval log")
+    print(f"Read the transcripts with: inspect view --log-dir {folder} --port 7575")

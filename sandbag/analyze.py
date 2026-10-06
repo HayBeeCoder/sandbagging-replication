@@ -7,6 +7,7 @@ import argparse
 import csv
 import json
 from pathlib import Path
+from urllib.parse import unquote, urlparse
 
 from inspect_ai.log import EvalLog, list_eval_logs, read_eval_log
 
@@ -112,6 +113,10 @@ def write_summary(log: EvalLog, runs: list[dict], crashed: int) -> str:
              f"**{framing(recorded['role'], recorded['system'])}**", "",
              f"- Model: `{log.eval.model}` · tool mode: {recorded['tool_mode']} · "
              f"unreadable replies: {settings['unparseable_reply']['mode'] if recorded['tool_mode'] == 'text' else 'not applicable (native tool calls)'}",
+             f"- Run: `{recorded.get('run_id', 'not recorded')}`"
+             + (f" · name: {recorded['name']}" if recorded.get("name") else "")
+             + f" · code version: {recorded.get('code_version', 'not recorded')}",
+             *([f"- Note: {recorded['note']}"] if recorded.get("note") else []),
              f"- Log: `{Path(log.location).name}` · Inspect {recorded['inspect_version']}",
              f"- Runs analysed: {len(runs)}" + (f" · **{crashed} crashed and are excluded**" if crashed else "")]
     changed = [name for name, code in recorded["prompt_fingerprints"].items() if prompts.fingerprints().get(name) != code]
@@ -151,21 +156,57 @@ def write_csv(runs: list[dict], path: Path) -> None:
             writer.writerow({name: json.dumps(value) if isinstance(value, list) else value for name, value in run.items()})
 
 
+def folder_of(log: EvalLog) -> Path:
+    """The folder a log file is in. Inspect sometimes writes the location as a file: address."""
+    location = log.location
+    if location.startswith("file:"):
+        location = unquote(urlparse(location).path)
+    return Path(location).parent
+
+
 def analyze(folder: Path) -> str:
-    """Analyse the latest finished run in a results folder; returns the summary text."""
+    """Analyse the latest finished run in or below a folder; the two files are written next to its log."""
     log = latest_log(folder)
     runs, crashed = load_runs(log)
     summary = write_summary(log, runs, crashed)
-    (folder / "summary.md").write_text(summary, encoding="utf-8")
-    write_csv(runs, folder / "runs.csv")
+    run_folder = folder_of(log)
+    (run_folder / "summary.md").write_text(summary, encoding="utf-8")
+    write_csv(runs, run_folder / "runs.csv")
     return summary
+
+
+def history(results: Path) -> list[dict]:
+    """One line per run ever made, oldest first, read from the log headers."""
+    lines = []
+    for info in list_eval_logs(str(results), descending=False):
+        log = read_eval_log(info, header_only=True)
+        recorded = log.eval.metadata or {}
+        accuracy = {name: metric.value for name, metric in log.results.scores[0].metrics.items()} if log.results else {}
+        lines.append({"folder": str(folder_of(log).relative_to(results)), "status": log.status,
+                      "runs": log.eval.config.epochs, "sandbag": accuracy.get("sandbag"),
+                      "counterfactual": accuracy.get("counterfactual"), "note": recorded.get("note", "")})
+    return lines
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Analyse the latest run for one model and system prompt.")
-    parser.add_argument("model_key")
+    parser.add_argument("model_key", nargs="?", help="leave out together with --list to see every run")
     parser.add_argument("--system", default="no_goal", choices=list(prompts.SYSTEM_PROMPTS))
+    parser.add_argument("--run", help="the run's folder name; default is the latest run for this model and prompt")
+    parser.add_argument("--list", action="store_true", help="list every run instead of analysing one")
     args = parser.parse_args()
-    folder = ROOT / "results" / args.model_key / args.system
-    print(analyze(folder))
-    print(f"Wrote {folder / 'summary.md'} and {folder / 'runs.csv'}")
+
+    if args.list or not args.model_key:
+        show = lambda value: "  -  " if value is None else f"{value:.3f}"
+        print(f"{'run folder':<62}{'status':<9}{'runs':>5}{'sandbag':>9}{'counterf.':>10}  note")
+        for line in history(ROOT / "results"):
+            print(f"{line['folder']:<62}{line['status']:<9}{line['runs']:>5}{show(line['sandbag']):>9}"
+                  f"{show(line['counterfactual']):>10}  {line['note']}")
+    else:
+        folder = ROOT / "results" / args.model_key / args.system
+        if args.run:
+            folder = folder / args.run
+            if not folder.is_dir():
+                raise SystemExit(f"no run folder {folder}; see them all with: python -m sandbag.analyze --list")
+        print(analyze(folder))
+        print(f"Wrote summary.md and runs.csv in {folder_of(latest_log(folder))}")
