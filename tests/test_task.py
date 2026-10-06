@@ -84,8 +84,8 @@ def test_the_models_that_think_by_default_are_asked_for_a_readable_summary():
     from sandbag.registry import load_registry
     registry = load_registry()
     for key in ("claude_sonnet55", "claude_opus55", "claude_fable51"):
-        assert registry[key].generate["extra_body"]["thinking"] == {"type": "adaptive", "display": "summarized"}
-    assert "extra_body" not in registry["claude_haiku45"].generate  # does not think unless asked
+        assert registry[key].generate["reasoning_effort"] == "high"
+    assert "reasoning_effort" not in registry["claude_haiku45"].generate  # does not think unless asked
 
 
 def test_screens_see_the_models_words_and_reasoning_but_not_ours():

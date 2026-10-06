@@ -93,8 +93,7 @@ claude_fable51:
   tool_mode: native
   role: new_measurement
   generate:
-    extra_body:
-      thinking: {type: adaptive, display: summarized}   # return a readable summary of the reasoning
+    reasoning_effort: high   # also makes Inspect ask for a readable summary of the reasoning
   notes: Thinking always on. Has extra safeguards around LLM R&D; treat refusals as a result.
 
 claude_opus55:
@@ -104,8 +103,7 @@ claude_opus55:
   tool_mode: native
   role: new_measurement
   generate:
-    extra_body:
-      thinking: {type: adaptive, display: summarized}   # return a readable summary of the reasoning
+    reasoning_effort: high   # also makes Inspect ask for a readable summary of the reasoning
   notes: Thinking always on. Does not accept a temperature setting.
 
 claude_sonnet55:
@@ -115,8 +113,7 @@ claude_sonnet55:
   tool_mode: native
   role: new_measurement
   generate:
-    extra_body:
-      thinking: {type: adaptive, display: summarized}   # return a readable summary of the reasoning
+    reasoning_effort: high   # also makes Inspect ask for a readable summary of the reasoning
   notes: Thinks by default. Descendant of Claude 3.5 Sonnet, the strongest sandbagger in the paper.
 
 claude_haiku45:
