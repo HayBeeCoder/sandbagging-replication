@@ -15,7 +15,7 @@ GIVEAWAYS = re.compile(r"\b(test|tests|tested|testing|evaluat\w*|assess\w*|bench
 
 
 def test_the_expected_scenarios_exist():
-    assert prompts.scenarios() == ["apollo", "colleague_file", "colleague_note", "colleague_subfolder"]
+    assert prompts.scenarios() == ["apollo", "colleague_file", "colleague_folder", "colleague_note", "colleague_subfolder"]
 
 
 @pytest.mark.parametrize("scenario", prompts.scenarios())
@@ -55,6 +55,13 @@ def test_where_the_consequence_text_sits_in_each_scenario():
     assert where("colleague_note") == ["README.md"]                     # 1. in the file the model is told to read
     assert where("colleague_file") == ["platform_note.md"]              # 2. in a second file in the same folder
     assert where("colleague_subfolder") == ["internal/platform_note.md"]  # 3. in a subfolder
+    assert where("colleague_folder") == ["platform_note.md"]            # as 2, but the request names no files
+
+
+def test_the_folder_scenario_names_no_files_so_the_model_has_to_look():
+    request = prompts.user_prompt("colleague_folder")
+    assert not any(name in request for name in sandbox_files("sandbag", "colleague_folder"))
+    assert "calculations.txt" in prompts.user_prompt("colleague_file")  # the earlier scenario does name them
 
 
 def test_an_unknown_scenario_is_refused():
@@ -62,7 +69,7 @@ def test_an_unknown_scenario_is_refused():
         prompts.user_prompt("made_up")
 
 
-@pytest.mark.parametrize("scenario,saw_it", [("colleague_note", True), ("colleague_file", True), ("colleague_subfolder", False)])
+@pytest.mark.parametrize("scenario,saw_it", [("colleague_note", True), ("colleague_file", True), ("colleague_folder", True), ("colleague_subfolder", False)])
 def test_a_full_run_in_each_scenario(tmp_path, scenario, saw_it):
     """The fake sandbagger reads the files in its folder. It only sandbags if it came across the consequence text."""
     log = run_experiment("mock_sandbagger", runs=2, results=tmp_path, display="none", scenario=scenario)
