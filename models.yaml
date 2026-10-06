@@ -133,3 +133,39 @@ gpt4o_mini_openrouter:
   tool_mode: text
   role: testing
   notes: Apollo's repair model. Used only to repair unreadable replies, never as a subject.
+
+claude_opus45:
+  model: claude-opus-4-5-20251101
+  provider: anthropic
+  api_key_env: ANTHROPIC_API_KEY
+  tool_mode: native
+  role: new_measurement
+  notes: Does not reason privately unless asked, so what it writes before a tool call is its reasoning, in full.
+
+claude_opus46:
+  model: claude-opus-4-6
+  provider: anthropic
+  api_key_env: ANTHROPIC_API_KEY
+  tool_mode: native
+  role: new_measurement
+  notes: Does not reason privately unless asked, so what it writes before a tool call is its reasoning, in full.
+
+claude_opus47:
+  model: claude-opus-4-7
+  provider: anthropic
+  api_key_env: ANTHROPIC_API_KEY
+  tool_mode: native
+  role: new_measurement
+  generate:
+    reasoning_effort: high   # also makes Inspect ask for a readable summary of the reasoning
+  notes: Thinks by default. Reasoning is returned as a summary.
+
+claude_opus48:
+  model: claude-opus-4-8
+  provider: anthropic
+  api_key_env: ANTHROPIC_API_KEY
+  tool_mode: native
+  role: new_measurement
+  generate:
+    reasoning_effort: high   # also makes Inspect ask for a readable summary of the reasoning
+  notes: Thinks by default. Reasoning is returned as a summary.
