@@ -25,7 +25,9 @@ def model_text(messages) -> str:
             continue
         for item in message.content:
             if isinstance(item, ContentReasoning):
-                parts.append(item.reasoning or item.summary or "")
+                # When the provider hides the reasoning, 'reasoning' holds an encrypted blob, not words.
+                # Only the summary (if the provider sent one) is readable.
+                parts.append((item.summary or "") if item.redacted else (item.reasoning or item.summary or ""))
             elif isinstance(item, ContentText):
                 parts.append(item.text)
     return "\n\n".join(part for part in parts if part)
