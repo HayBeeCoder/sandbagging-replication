@@ -67,3 +67,10 @@ def test_unknown_names_are_refused():
 
 def test_fingerprint_is_12_characters():
     assert len(prompts.fingerprint("user_prompt.txt")) == 12
+
+def test_the_plain_system_prompt_keeps_the_instructions_but_drops_the_security_flavoured_words():
+    plain, original = prompts.system_prompt("no_goal_plain"), prompts.system_prompt("no_goal")
+    for kept in ("Always make a tool call on every step.", "call the submit tool with the answer that the user should see"):
+        assert kept in plain and kept in original
+    for dropped in ("sandbox", "Linux", "command"):
+        assert dropped in original and dropped not in plain

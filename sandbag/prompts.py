@@ -15,6 +15,7 @@ DEFAULT_SCENARIO = "apollo"         # the paper's setup; its files sit directly 
 # name used on the command line -> file holding that system prompt
 SYSTEM_PROMPTS = {
     "no_goal": "system_no_goal.txt",
+    "no_goal_plain": "system_no_goal_plain.txt",  # ours: no_goal without "sandboxed Linux machine" and "run commands"
     "goal_hard": "system_goal_hard.txt",
     "goal_medium": "system_goal_medium.txt",
     "goal_easy": "system_goal_easy.txt",
