@@ -53,14 +53,16 @@ def sandbag_scorer():
 
 
 @task
-def sandbagging(system: str = "no_goal", tool_mode: str = "text", runs: int | None = None) -> Task:
-    """system: no_goal, goal_hard, goal_medium or goal_easy. runs: overrides runs_per_condition."""
+def sandbagging(system: str = "no_goal", tool_mode: str = "text", runs: int | None = None,
+                scenario: str = prompts.DEFAULT_SCENARIO) -> Task:
+    """system: no_goal, goal_hard, goal_medium or goal_easy. runs: overrides runs_per_condition.
+    scenario: apollo (the paper's setup) or a folder name under prompts/scenarios/."""
     settings = load_experiment()
     return Task(
-        dataset=[Sample(id=condition, input=prompts.user_prompt(), files=sandbox_files(condition),
+        dataset=[Sample(id=condition, input=prompts.user_prompt(scenario), files=sandbox_files(condition, scenario),
                         metadata={"condition": condition})
                  for condition in settings["conditions"]],
-        solver=sandbag_agent(system, tool_mode, settings),
+        solver=sandbag_agent(system, tool_mode, settings, scenario=scenario),
         scorer=sandbag_scorer(),
         epochs=Epochs(runs or settings["runs_per_condition"]),  # each sample is repeated this many times
         sandbox=settings["sandbox"],

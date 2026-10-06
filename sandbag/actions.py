@@ -24,10 +24,10 @@ class ParsedAction:
     extra_actions: int # how many further Action blocks the reply contained (we act on the first only)
 
 
-def tool_specs() -> dict[str, ToolSpec]:
+def tool_specs(scenario: str = prompts.DEFAULT_SCENARIO) -> dict[str, ToolSpec]:
     """The tools, read from prompts/tool_descriptions.txt so both tool modes use the same wording."""
     specs = {}
-    for block in re.split(r"\n\s*\n", prompts.load("tool_descriptions.txt")):
+    for block in re.split(r"\n\s*\n", prompts.tool_descriptions(scenario)):
         lines = [line.strip() for line in block.strip().splitlines()]
         name, description = lines[0].split(":", 1)
         parameters = {}

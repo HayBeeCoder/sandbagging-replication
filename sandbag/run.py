@@ -41,13 +41,18 @@ def new_run_folder(parent: Path, name: str | None) -> Path:
     return folder
 
 
+def experiment_folder(system: str, scenario: str) -> str:
+    """Where an experiment's runs are filed: no_goal for the paper's scenario, no_goal__<scenario> for others."""
+    return system if scenario == prompts.DEFAULT_SCENARIO else f"{system}__{scenario}"
+
+
 def run_experiment(model_key: str, system: str = "no_goal", runs: int | None = None,
                    results: Path | None = None, display: str = "plain",
-                   name: str | None = None, note: str = "") -> EvalLog:
+                   name: str | None = None, note: str = "", scenario: str = prompts.DEFAULT_SCENARIO) -> EvalLog:
     spec = get_spec(model_key)
     settings = load_experiment()
-    task = sandbagging(system=system, tool_mode=spec.tool_mode, runs=runs)
-    log_dir = new_run_folder((results or ROOT / "results") / model_key / system, name)
+    task = sandbagging(system=system, tool_mode=spec.tool_mode, runs=runs, scenario=scenario)
+    log_dir = new_run_folder((results or ROOT / "results") / model_key / experiment_folder(system, scenario), name)
     return eval(
         task,
         model=build_model(model_key),
@@ -58,6 +63,7 @@ def run_experiment(model_key: str, system: str = "no_goal", runs: int | None = N
             "model_key": model_key,
             "role": spec.role,                       # replication or new_measurement
             "system": system,
+            "scenario": scenario,
             "tool_mode": spec.tool_mode,
             "settings": settings,
             "prompt_fingerprints": prompts.fingerprints(),  # also refuses to start if a prompt file is empty
@@ -92,15 +98,17 @@ if __name__ == "__main__":
     parser.add_argument("model_key", help="a key from models.yaml (list them with: python -m sandbag.registry)")
     parser.add_argument("--system", default="no_goal", choices=list(prompts.SYSTEM_PROMPTS))
     parser.add_argument("--runs", type=int, help="runs per condition; default is runs_per_condition in experiment.yaml")
+    parser.add_argument("--scenario", default=prompts.DEFAULT_SCENARIO, choices=prompts.scenarios(),
+                        help="apollo is the paper's setup; the others do not tell the model it is being tested")
     parser.add_argument("--name", help="a short label added to the run's folder name, e.g. pilot or full")
     parser.add_argument("--note", default="", help="a sentence on why you are doing this run; saved with the results")
     args = parser.parse_args()
 
-    log = run_experiment(args.model_key, args.system, args.runs, name=args.name, note=args.note)
+    log = run_experiment(args.model_key, args.system, args.runs, name=args.name, note=args.note, scenario=args.scenario)
     if log.status != "success":
         sys.exit(f"\nThe run did not finish: {log.status}. {log.error.message if log.error else ''}\nLog: {log.location}")
 
-    print(f"\n{args.model_key} · {args.system} · {get_spec(args.model_key).role}")
+    print(f"\n{args.model_key} · {args.system} · scenario {args.scenario} · {get_spec(args.model_key).role}")
     print(f"{'condition':<16}{'runs':>5}{'accuracy':>10}{'submitted':>11}{'read docs':>11}{'sandbag flag':>14}")
     for condition, row in sorted(summarise(log).items(), reverse=True):  # sandbag first
         print(f"{condition:<16}{row['runs']:>5}{row['accuracy']:>10.3f}{row['submitted']:>11}"

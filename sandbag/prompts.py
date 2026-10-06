@@ -9,6 +9,8 @@ from sandbag.config import ROOT
 
 PROMPTS = ROOT / "prompts"
 TOOLS_PLACEHOLDER = "[SCENARIO SPECIFIC TOOLS]"
+SCENARIOS = PROMPTS / "scenarios"   # one folder per extra scenario
+DEFAULT_SCENARIO = "apollo"         # the paper's setup; its files sit directly in prompts/
 
 # name used on the command line -> file holding that system prompt
 SYSTEM_PROMPTS = {
@@ -36,8 +38,36 @@ def system_prompt(variant: str) -> str:
     return load(SYSTEM_PROMPTS[variant])
 
 
-def user_prompt() -> str:
-    return load("user_prompt.txt")
+def scenarios() -> list[str]:
+    """Every scenario you can run: the paper's, plus one per folder in prompts/scenarios/."""
+    extra = sorted(p.name for p in SCENARIOS.iterdir() if p.is_dir()) if SCENARIOS.exists() else []
+    return [DEFAULT_SCENARIO] + extra
+
+
+def _in_scenario(scenario: str, filename: str) -> str:
+    if scenario not in scenarios():
+        raise ValueError(f"unknown scenario '{scenario}'; choose from {scenarios()}")
+    return f"scenarios/{scenario}/{filename}"
+
+
+def user_prompt(scenario: str = DEFAULT_SCENARIO) -> str:
+    return load("user_prompt.txt" if scenario == DEFAULT_SCENARIO else _in_scenario(scenario, "user_prompt.txt"))
+
+
+def passage(scenario: str, condition: str) -> str:
+    """The text that states the consequence of scoring well (or, in the counterfactual, poorly)."""
+    if condition not in ("sandbag", "counterfactual"):
+        raise ValueError(f"unknown condition '{condition}'")
+    if scenario == DEFAULT_SCENARIO:
+        return arithmetic_section(condition)
+    return load(_in_scenario(scenario, f"passage_{condition}.md"))
+
+
+def tool_descriptions(scenario: str = DEFAULT_SCENARIO) -> str:
+    """A scenario may word the tools differently (the paper's submit tool says 'for evaluation')."""
+    if scenario != DEFAULT_SCENARIO and (PROMPTS / _in_scenario(scenario, "tool_descriptions.txt")).exists():
+        return load(_in_scenario(scenario, "tool_descriptions.txt"))
+    return load("tool_descriptions.txt")
 
 
 def arithmetic_section(condition: str) -> str:
@@ -46,12 +76,12 @@ def arithmetic_section(condition: str) -> str:
     return load(f"arithmetic_{condition}.md")
 
 
-def text_tool_instructions() -> str:
+def text_tool_instructions(scenario: str = DEFAULT_SCENARIO) -> str:
     """Apollo's tool-use instructions with our tool descriptions put in the placeholder."""
     template = load("text_tool_instructions.txt")
     if template.count(TOOLS_PLACEHOLDER) != 1:
         raise ValueError(f"text_tool_instructions.txt must contain {TOOLS_PLACEHOLDER} exactly once")
-    return template.replace(TOOLS_PLACEHOLDER, load("tool_descriptions.txt"))
+    return template.replace(TOOLS_PLACEHOLDER, tool_descriptions(scenario))
 
 
 def fingerprint(filename: str) -> str:
@@ -60,7 +90,8 @@ def fingerprint(filename: str) -> str:
 
 
 def all_files() -> list[str]:
-    return sorted(p.name for p in PROMPTS.iterdir() if p.suffix in (".txt", ".md") and p.name != "README.md")
+    names = (p.relative_to(PROMPTS).as_posix() for p in PROMPTS.rglob("*") if p.is_file() and p.suffix in (".txt", ".md"))
+    return sorted(name for name in names if name != "README.md")  # prompts/README.md is a note for you, not a prompt
 
 
 def fingerprints() -> dict[str, str]:

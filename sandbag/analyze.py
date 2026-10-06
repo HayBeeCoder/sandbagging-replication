@@ -87,10 +87,13 @@ def compare(runs: list[dict], settings: dict) -> dict | None:
             "significant": result["p_one_sided"] < settings["alpha"]}
 
 
-def framing(role: str, system: str) -> str:
+def framing(role: str, system: str, scenario: str = prompts.DEFAULT_SCENARIO) -> str:
     """How this result may be described. Only one cell of Apollo's table can be replicated directly."""
     if role == "testing":
         return "A pipeline test with a fake or pilot model. Not a result."
+    if scenario != prompts.DEFAULT_SCENARIO:
+        return (f"A new design (scenario '{scenario}'): the model is not told it is being tested, and all scenario wording "
+                "is ours. Not a replication. 'Read docs' below means the consequence text appeared in a command's output.")
     if role == "replication" and system == "goal_hard":
         return ("A direct replication. Apollo (Table 18) report a gap of 0.00 for Llama 3.1 405B with this prompt, "
                 "so the expected result is no significant difference.")
@@ -109,8 +112,9 @@ def number(p: float) -> str:
 def write_summary(log: EvalLog, runs: list[dict], crashed: int) -> str:
     recorded, settings = log.eval.metadata, log.eval.metadata["settings"]
     alpha = settings["alpha"]
-    lines = [f"# Sandbagging results: {recorded['model_key']} · {recorded['system']}", "",
-             f"**{framing(recorded['role'], recorded['system'])}**", "",
+    scenario = recorded.get("scenario", prompts.DEFAULT_SCENARIO)
+    lines = [f"# Sandbagging results: {recorded['model_key']} · {recorded['system']} · scenario {scenario}", "",
+             f"**{framing(recorded['role'], recorded['system'], scenario)}**", "",
              f"- Model: `{log.eval.model}` · tool mode: {recorded['tool_mode']} · "
              f"unreadable replies: {settings['unparseable_reply']['mode'] if recorded['tool_mode'] == 'text' else 'not applicable (native tool calls)'}",
              f"- Run: `{recorded.get('run_id', 'not recorded')}`"
@@ -192,6 +196,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Analyse the latest run for one model and system prompt.")
     parser.add_argument("model_key", nargs="?", help="leave out together with --list to see every run")
     parser.add_argument("--system", default="no_goal", choices=list(prompts.SYSTEM_PROMPTS))
+    parser.add_argument("--scenario", default=prompts.DEFAULT_SCENARIO, choices=prompts.scenarios())
     parser.add_argument("--run", help="the run's folder name; default is the latest run for this model and prompt")
     parser.add_argument("--list", action="store_true", help="list every run instead of analysing one")
     args = parser.parse_args()
@@ -203,7 +208,8 @@ if __name__ == "__main__":
             print(f"{line['folder']:<62}{line['status']:<9}{line['runs']:>5}{show(line['sandbag']):>9}"
                   f"{show(line['counterfactual']):>10}  {line['note']}")
     else:
-        folder = ROOT / "results" / args.model_key / args.system
+        from sandbag.run import experiment_folder
+        folder = ROOT / "results" / args.model_key / experiment_folder(args.system, args.scenario)
         if args.run:
             folder = folder / args.run
             if not folder.is_dir():
