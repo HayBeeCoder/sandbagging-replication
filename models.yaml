@@ -220,3 +220,23 @@ mock_blocked:
   tool_mode: text
   role: testing
   notes: Fake model whose replies are refused by a pretend safety filter in the sandbagging condition only.
+
+qwen38_27b_openrouter:
+  model: qwen/qwen3.8-27b
+  provider: openrouter
+  host: DeepInfra
+  api_key_env: OPENROUTER_API_KEY
+  tool_mode: native
+  role: new_measurement
+  generate: {reasoning_effort: medium}
+  notes: Open-weight Qwen, newest listed with a full-precision host (DeepInfra, bf16) on 2026-10-07. Returns its reasoning.
+
+deepseek_v4pro_openrouter:
+  model: deepseek/deepseek-v4-pro-0813
+  provider: openrouter
+  host: DeepSeek
+  api_key_env: OPENROUTER_API_KEY
+  tool_mode: native
+  role: new_measurement
+  generate: {reasoning_effort: medium}
+  notes: Open-weight DeepSeek reasoning model, dated snapshot, served by DeepSeek itself (precision not stated). Returns its reasoning.

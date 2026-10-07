@@ -450,3 +450,11 @@ Path("sandbag/environment.py").write_text(ENVIRONMENT)
 print("rewrote sandbag/environment.py")
 Path("tests/test_baseline.py").write_text(TESTS)
 print("wrote tests/test_baseline.py")
+
+for m in claude_opus55 claude_sonnet55 claude_haiku45  gpt61_sol_openrouter gpt4o_openrouter; do
+  for s in goal_hard goal_easy; do
+    python -m sandbag.run $m --system $s --scenario colleague_memo_reason --runs 25 --baseline --name main \
+      --note "$m, $s, colleague_memo_reason, 25 runs per condition, with baseline"
+  done
+done
+cp -rn results/. records/ && git add -A && git commit -m "goal_hard and goal_easy on colleague_memo_reason, six models, with baseline" && git push
