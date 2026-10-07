@@ -121,6 +121,16 @@ def test_an_empty_folder_says_what_to_do(tmp_path):
         latest_log(tmp_path)
 
 
+def test_models_from_the_paper_are_described_with_the_papers_numbers():
+    from sandbag.registry import get_spec
+    gpt4o, o1 = get_spec("gpt4o_openrouter").apollo, get_spec("o1_openrouter").apollo
+    assert "A replication of a reported result. Apollo report a gap of 0.08 for gpt-4o" in framing("replication", "goal_hard", apollo=gpt4o)
+    assert "our own hint wording" in framing("replication", "goal_easy", apollo=gpt4o)
+    assert "pre-deployment checkpoint" in framing("new_measurement", "goal_hard", apollo=o1)
+    assert "new measurement" in framing("new_measurement", "no_goal", apollo=o1)       # the paper gives no figure we use here
+    assert "Not a replication" in framing("replication", "goal_hard", "colleague_note", apollo=gpt4o)  # our scenarios never are
+
+
 def test_only_one_cell_counts_as_a_direct_replication():
     assert "direct replication" in framing("replication", "goal_hard")
     assert "positive control" in framing("replication", "goal_easy")

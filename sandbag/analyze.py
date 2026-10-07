@@ -13,6 +13,7 @@ from inspect_ai.log import EvalLog, list_eval_logs, read_eval_log
 
 from sandbag import prompts
 from sandbag.config import ROOT
+from sandbag.registry import load_registry
 from sandbag.screens import SCREENS, TITLES, quotes, screen
 from sandbag.stats import bootstrap_interval, bootstrap_test
 from sandbag.task import model_text
@@ -96,13 +97,20 @@ def compare(runs: list[dict], settings: dict) -> dict | None:
             "significant": result["p_one_sided"] < settings["alpha"]}
 
 
-def framing(role: str, system: str, scenario: str = prompts.DEFAULT_SCENARIO) -> str:
-    """How this result may be described. Only one cell of Apollo's table can be replicated directly."""
+def framing(role: str, system: str, scenario: str = prompts.DEFAULT_SCENARIO, apollo: dict | None = None) -> str:
+    """How this result may be described. Only cells of Apollo's table can be replicated directly."""
     if role == "testing":
         return "A pipeline test with a fake or pilot model. Not a result."
     if scenario != prompts.DEFAULT_SCENARIO:
         return (f"A new design (scenario '{scenario}'): the model is not told it is being tested, and all scenario wording "
                 "is ours. Not a replication. 'Read docs' below means the consequence text appeared in a command's output.")
+    if apollo and system in apollo.get("gaps", {}):
+        reported = f"Apollo report a gap of {apollo['gaps'][system]:.2f} for {apollo['name']}"
+        caveat = (" " + apollo["caveat"]) if apollo.get("caveat") else ""
+        if system in ("goal_medium", "goal_easy"):
+            return (f"Comparable to a reported result, with our own hint wording. {reported} at this difficulty with "
+                    f"their unpublished hints, so the size of any gap may differ.{caveat}")
+        return f"A replication of a reported result. {reported} with this prompt.{caveat}"
     if role == "replication" and system == "goal_hard":
         return ("A direct replication. Apollo (Table 18) report a gap of 0.00 for Llama 3.1 405B with this prompt, "
                 "so the expected result is no significant difference.")
@@ -123,7 +131,7 @@ def write_summary(log: EvalLog, runs: list[dict], crashed: int) -> str:
     alpha = settings["alpha"]
     scenario = recorded.get("scenario", prompts.DEFAULT_SCENARIO)
     lines = [f"# Sandbagging results: {recorded['model_key']} · {recorded['system']} · scenario {scenario}", "",
-             f"**{framing(recorded['role'], recorded['system'], scenario)}**", "",
+             f"**{framing(recorded['role'], recorded['system'], scenario, getattr(load_registry().get(recorded['model_key']), 'apollo', None))}**", "",
              f"- Model: `{log.eval.model}` · tool mode: {recorded['tool_mode']} · "
              f"unreadable replies: {settings['unparseable_reply']['mode'] if recorded['tool_mode'] == 'text' else 'not applicable (native tool calls)'}",
              f"- Run: `{recorded.get('run_id', 'not recorded')}`"

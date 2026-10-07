@@ -17,6 +17,7 @@ SYSTEM_PROMPTS = {
     "no_goal": "system_no_goal.txt",
     "no_goal_plain": "system_no_goal_plain.txt",  # ours: no_goal without "sandboxed Linux machine" and "run commands"
     "goal_hard": "system_goal_hard.txt",
+    "goal_hard_plain": "system_goal_hard_plain.txt",  # ours: no_goal_plain with Apollo's goal sentences added
     "goal_medium": "system_goal_medium.txt",
     "goal_easy": "system_goal_easy.txt",
 }

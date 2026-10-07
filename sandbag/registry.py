@@ -9,7 +9,7 @@ from inspect_ai.model import GenerateConfig, Model, get_model
 from sandbag import mocks
 from sandbag.config import ROOT, load_experiment
 
-PROVIDERS = ("mock", "openai-compatible", "anthropic")
+PROVIDERS = ("mock", "openai-compatible", "anthropic", "openrouter")
 TOOL_MODES = ("text", "native")
 ROLES = ("testing", "replication", "new_measurement")
 
@@ -23,6 +23,8 @@ class ModelSpec:
     role: str
     service: str = "vllm"
     base_url: str | None = None
+    host: str | None = None      # (openrouter) the one company allowed to serve the requests
+    apollo: dict | None = None   # what the paper reports for this model: {name, gaps: {prompt: gap}, caveat}
     api_key_env: str | None = None
     generate: dict = field(default_factory=dict)
     serve: str = ""
@@ -44,6 +46,8 @@ def load_registry(path=None) -> dict[str, ModelSpec]:
             raise ValueError(f"'{key}': tool_mode must be one of {TOOL_MODES}, got '{spec.tool_mode}'")
         if spec.role not in ROLES:
             raise ValueError(f"'{key}': role must be one of {ROLES}, got '{spec.role}'")
+        if spec.provider == "openrouter" and not (spec.host and spec.api_key_env):
+            raise ValueError(f"'{key}': an openrouter model needs a host (to pin one company) and an api_key_env")
         if spec.provider == "openai-compatible" and not spec.base_url:
             raise ValueError(f"'{key}': an openai-compatible model needs a base_url")
         unknown = set(spec.generate) - set(GenerateConfig.model_fields)
@@ -80,6 +84,10 @@ def build_model(key: str) -> Model:
         return get_model("mockllm/model", config=config)
     if spec.provider == "anthropic":
         return get_model(f"anthropic/{spec.model}", api_key=api_key, config=config)
+    if spec.provider == "openrouter":
+        # One host only, and no falling back to another: every run of an experiment must use the same weights.
+        return get_model(f"openrouter/{spec.model}", api_key=api_key, config=config,
+                         provider={"order": [spec.host], "allow_fallbacks": False})
     # openai-compatible: vLLM on the pod, Together, OpenRouter, ...
     return get_model(f"openai-api/{spec.service}/{spec.model}", base_url=spec.base_url,
                      api_key=api_key or "local", config=config)

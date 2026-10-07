@@ -24,6 +24,20 @@ def test_every_entry_in_the_real_file_is_valid():
     assert models["claude_sonnet55"].tool_mode == "native"     # Apollo's choice for Claude
 
 
+def test_openrouter_models_are_pinned_to_one_host(monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "not-a-real-key")
+    for key in ("gpt4o_openrouter", "o1_openrouter", "gpt61_sol_openrouter", "gpt6_luna_openrouter"):
+        model = registry.build_model(key)
+        assert model.api.provider == {"order": ["OpenAI"], "allow_fallbacks": False}
+    assert registry.get_spec("gpt4o_openrouter").model == "openai/gpt-4o-2024-08-06"  # the snapshot in the paper
+
+
+def test_an_openrouter_model_without_a_host_is_refused(tmp_path):
+    path = write_registry(tmp_path, provider="openrouter", base_url=None, api_key_env="OPENROUTER_API_KEY")
+    with pytest.raises(ValueError, match="needs a host"):
+        registry.load_registry(path)
+
+
 def test_no_api_key_is_ever_written_in_the_file():
     text = (ROOT / "models.yaml").read_text()
     assert "sk-ant-" not in text and "hf_" not in text

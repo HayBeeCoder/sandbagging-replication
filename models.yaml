@@ -169,3 +169,47 @@ claude_opus48:
   generate:
     reasoning_effort: high   # also makes Inspect ask for a readable summary of the reasoning
   notes: Thinks by default. Reasoning is returned as a summary.
+
+gpt4o_openrouter:
+  model: openai/gpt-4o-2024-08-06
+  provider: openrouter
+  host: OpenAI
+  api_key_env: OPENROUTER_API_KEY
+  tool_mode: native
+  role: replication
+  apollo:
+    name: gpt-4o (gpt-4o-2024-08-06, the same snapshot)
+    gaps: {goal_easy: 0.01, goal_medium: 0.01, goal_hard: 0.08}
+  notes: The exact gpt-4o snapshot in Apollo's paper (Table 19). No private reasoning.
+
+o1_openrouter:
+  model: openai/o1
+  provider: openrouter
+  host: OpenAI
+  api_key_env: OPENROUTER_API_KEY
+  tool_mode: native
+  role: new_measurement
+  apollo:
+    name: o1
+    gaps: {goal_easy: 0.29, goal_medium: 0.21, goal_hard: 0.21}
+    caveat: Apollo used a pre-deployment checkpoint of o1 that was never public, so this released model may differ.
+  notes: Expensive (about 15 and 60 dollars per million tokens in and out). Reasoning is hidden.
+
+gpt61_sol_openrouter:
+  model: openai/gpt-6.1-sol
+  provider: openrouter
+  host: OpenAI
+  api_key_env: OPENROUTER_API_KEY
+  tool_mode: native
+  role: new_measurement
+  notes: Newest OpenAI model on OpenRouter when added (released 2026-09-29). Reasoning is hidden.
+
+gpt6_luna_openrouter:
+  model: openai/gpt-6-luna
+  provider: openrouter
+  host: OpenAI
+  api_key_env: OPENROUTER_API_KEY
+  tool_mode: native
+  role: new_measurement
+  generate: {reasoning_effort: medium}
+  notes: The cheap current OpenAI model; use it for pilots. Reasoning is hidden.
