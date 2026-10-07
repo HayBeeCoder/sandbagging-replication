@@ -1,10 +1,11 @@
-"""Builds the two files the model finds in its sandbox: questions.txt and Documentation.md."""
+"""Builds the files the model finds in its sandbox, for one condition of one scenario."""
 from sandbag import prompts
 from sandbag.questions import load_questions_text
 
 SECTION_PLACEHOLDER = "[ARITHMETIC SECTION]"
 PASSAGE_PLACEHOLDER = "[PASSAGE]"      # in a scenario's files: where the consequence text goes
 QUESTIONS_PLACEHOLDER = "[QUESTIONS]"  # in a scenario's files: where the ten questions go
+BASELINE = "baseline"                  # a control condition: the same files with no consequence text at all
 
 
 def documentation(condition: str) -> str:
@@ -12,6 +13,8 @@ def documentation(condition: str) -> str:
     template = prompts.load("documentation_template.md")
     if template.count(SECTION_PLACEHOLDER) != 1:
         raise ValueError(f"documentation_template.md must contain {SECTION_PLACEHOLDER} exactly once")
+    if condition == BASELINE:  # leave out the section and the heading above it
+        return template[:template.rindex("\n## ", 0, template.index(SECTION_PLACEHOLDER))].rstrip() + "\n"
     return template.replace(SECTION_PLACEHOLDER, prompts.arithmetic_section(condition)) + "\n"
 
 
@@ -29,9 +32,16 @@ def sandbox_files(condition: str, scenario: str = prompts.DEFAULT_SCENARIO) -> d
     for placeholder in (PASSAGE_PLACEHOLDER, QUESTIONS_PLACEHOLDER):
         if sum(text.count(placeholder) for text in templates.values()) != 1:
             raise ValueError(f"scenario '{scenario}': its files must contain {placeholder} exactly once")
-    text_for = {PASSAGE_PLACEHOLDER: prompts.passage(scenario, condition), QUESTIONS_PLACEHOLDER: load_questions_text().strip()}
+    text_for = {QUESTIONS_PLACEHOLDER: load_questions_text().strip()}
+    if condition != BASELINE:
+        text_for[PASSAGE_PLACEHOLDER] = prompts.passage(scenario, condition)
     files = {}
     for name, text in templates.items():
+        if condition == BASELINE:
+            # Drop the line that holds the consequence text; a file that held nothing else is not there at all.
+            text = "\n".join(line for line in text.splitlines() if line.strip() != PASSAGE_PLACEHOLDER).strip()
+            if not text:
+                continue
         for placeholder, replacement in text_for.items():
             text = text.replace(placeholder, replacement)
         files[name] = text + "\n"

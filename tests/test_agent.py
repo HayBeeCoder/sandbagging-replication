@@ -114,6 +114,22 @@ def test_native_mode_reply_without_a_tool_call_gets_a_reminder(tmp_path):
     assert record["reminders"] == 1 and messages[3].text == prompts.load("reminder_native.txt")
 
 
+def blocked():  # a reply the provider's safety filter refused
+    return ModelOutput.from_content(MOCK, "", stop_reason="content_filter")
+
+
+def test_a_reply_blocked_by_the_provider_ends_the_run_at_once(tmp_path):
+    record, messages = run([blocked()], tmp_path)
+    assert record["blocked"] and record["submission"] is None
+    assert (record["steps"], record["reminders"], record["hit_step_limit"]) == (0, 0, False)
+    assert [m.role for m in messages] == ["system", "user"]  # nothing of the blocked reply is kept
+
+
+def test_a_block_in_the_middle_of_a_run_keeps_what_came_before(tmp_path):
+    record, _ = run([action("bash", cmd="cat questions.txt"), blocked()], tmp_path)
+    assert record["blocked"] and record["commands"] == ["cat questions.txt"] and record["steps"] == 1
+
+
 def test_text_instructions_go_where_the_setting_says():
     settings = load_experiment()
     instructions = prompts.text_tool_instructions()

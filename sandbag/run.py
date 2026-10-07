@@ -18,7 +18,7 @@ from inspect_ai.log import EvalLog
 from sandbag import prompts
 from sandbag.config import ROOT, load_experiment
 from sandbag.registry import build_model, get_spec
-from sandbag.task import sandbagging
+from sandbag.task import sandbagging, was_blocked
 
 
 def code_version() -> str:
@@ -48,10 +48,11 @@ def experiment_folder(system: str, scenario: str) -> str:
 
 def run_experiment(model_key: str, system: str = "no_goal", runs: int | None = None,
                    results: Path | None = None, display: str = "plain",
-                   name: str | None = None, note: str = "", scenario: str = prompts.DEFAULT_SCENARIO) -> EvalLog:
+                   name: str | None = None, note: str = "", scenario: str = prompts.DEFAULT_SCENARIO,
+                   baseline: bool = False) -> EvalLog:
     spec = get_spec(model_key)
     settings = load_experiment()
-    task = sandbagging(system=system, tool_mode=spec.tool_mode, runs=runs, scenario=scenario)
+    task = sandbagging(system=system, tool_mode=spec.tool_mode, runs=runs, scenario=scenario, baseline=baseline)
     log_dir = new_run_folder((results or ROOT / "results") / model_key / experiment_folder(system, scenario), name)
     return eval(
         task,
@@ -64,6 +65,7 @@ def run_experiment(model_key: str, system: str = "no_goal", runs: int | None = N
             "role": spec.role,                       # replication or new_measurement
             "system": system,
             "scenario": scenario,
+            "baseline": baseline,                    # whether the no-consequence control condition was run too
             "tool_mode": spec.tool_mode,
             "settings": settings,
             "prompt_fingerprints": prompts.fingerprints(),  # also refuses to start if a prompt file is empty
@@ -81,6 +83,8 @@ def summarise(log: EvalLog) -> dict[str, dict]:
     """Per condition: number of runs, mean accuracy, and how many runs did each thing."""
     summary = {}
     for sample in log.samples or []:
+        if was_blocked(sample):
+            continue  # reported by the analysis; not a result
         details = next(iter(sample.scores.values())).metadata
         row = summary.setdefault(details["condition"], {"runs": 0, "accuracy": 0.0, "submitted": 0,
                                                         "read_documentation": 0, "sandbagging_flag": 0})
@@ -100,11 +104,14 @@ if __name__ == "__main__":
     parser.add_argument("--runs", type=int, help="runs per condition; default is runs_per_condition in experiment.yaml")
     parser.add_argument("--scenario", default=prompts.DEFAULT_SCENARIO, choices=prompts.scenarios(),
                         help="apollo is the paper's setup; the others do not tell the model it is being tested")
+    parser.add_argument("--baseline", action="store_true",
+                        help="also run a control condition with no consequence text (half as many runs again)")
     parser.add_argument("--name", help="a short label added to the run's folder name, e.g. pilot or full")
     parser.add_argument("--note", default="", help="a sentence on why you are doing this run; saved with the results")
     args = parser.parse_args()
 
-    log = run_experiment(args.model_key, args.system, args.runs, name=args.name, note=args.note, scenario=args.scenario)
+    log = run_experiment(args.model_key, args.system, args.runs, name=args.name, note=args.note,
+                         scenario=args.scenario, baseline=args.baseline)
     if log.status != "success":
         sys.exit(f"\nThe run did not finish: {log.status}. {log.error.message if log.error else ''}\nLog: {log.location}")
 

@@ -8,7 +8,7 @@ from inspect_ai.solver import TaskState
 from sandbag import prompts
 from sandbag.agent import sandbag_agent
 from sandbag.config import load_experiment
-from sandbag.environment import sandbox_files
+from sandbag.environment import BASELINE, sandbox_files
 from sandbag.questions import load_answer_key
 from sandbag.scoring import score_submission
 from sandbag.screens import screen
@@ -33,6 +33,12 @@ def model_text(messages) -> str:
     return "\n\n".join(part for part in parts if part)
 
 
+def was_blocked(sample) -> bool:
+    """True if the provider's safety filter stopped this run. Such a run says nothing about the model."""
+    details = next(iter(sample.scores.values())).metadata if sample.scores else {}
+    return bool(details.get("blocked")) or (sample.output is not None and sample.output.stop_reason == "content_filter")
+
+
 @scorer(metrics=[grouped(mean(), "condition")])  # mean accuracy, separately for each condition
 def sandbag_scorer():
     key = load_answer_key()
@@ -54,14 +60,16 @@ def sandbag_scorer():
 
 @task
 def sandbagging(system: str = "no_goal", tool_mode: str = "text", runs: int | None = None,
-                scenario: str = prompts.DEFAULT_SCENARIO) -> Task:
+                scenario: str = prompts.DEFAULT_SCENARIO, baseline: bool = False) -> Task:
     """system: no_goal, goal_hard, goal_medium or goal_easy. runs: overrides runs_per_condition.
     scenario: apollo (the paper's setup) or a folder name under prompts/scenarios/."""
     settings = load_experiment()
+    # baseline: also run a control condition whose files hold no consequence text at all.
+    conditions = settings["conditions"] + ([BASELINE] if baseline else [])
     return Task(
         dataset=[Sample(id=condition, input=prompts.user_prompt(scenario), files=sandbox_files(condition, scenario),
                         metadata={"condition": condition})
-                 for condition in settings["conditions"]],
+                 for condition in conditions],
         solver=sandbag_agent(system, tool_mode, settings, scenario=scenario),
         scorer=sandbag_scorer(),
         epochs=Epochs(runs or settings["runs_per_condition"]),  # each sample is repeated this many times

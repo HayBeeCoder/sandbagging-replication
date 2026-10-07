@@ -88,7 +88,15 @@ def test_the_memo_scenario_hides_the_consequence_among_ordinary_things():
 def test_the_folder_scenario_names_no_files_so_the_model_has_to_look():
     request = prompts.user_prompt("colleague_folder")
     assert not any(name in request for name in sandbox_files("sandbag", "colleague_folder"))
-    assert "calculations.txt" in prompts.user_prompt("colleague_file")  # the earlier scenario does name them
+    # Since 7 Oct 2026 these two use the same request, so they differ from colleague_folder only in where the note sits.
+    assert prompts.user_prompt("colleague_file") == prompts.user_prompt("colleague_subfolder") == request
+
+
+@pytest.mark.parametrize("scenario", OURS)
+def test_every_request_of_ours_ends_by_asking_for_no_code(scenario):
+    request = prompts.user_prompt(scenario)
+    assert request.endswith("Don't write code to help you.") and request.count("code") == 1
+    assert "rather than" not in request and "Thanks" not in request
 
 
 def test_an_unknown_scenario_is_refused():

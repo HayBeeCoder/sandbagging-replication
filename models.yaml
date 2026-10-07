@@ -213,3 +213,10 @@ gpt6_luna_openrouter:
   role: new_measurement
   generate: {reasoning_effort: medium}
   notes: The cheap current OpenAI model; use it for pilots. Reasoning is hidden.
+
+mock_blocked:
+  model: blocked
+  provider: mock
+  tool_mode: text
+  role: testing
+  notes: Fake model whose replies are refused by a pretend safety filter in the sandbagging condition only.

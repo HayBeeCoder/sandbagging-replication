@@ -95,12 +95,20 @@ def sandbag_agent(system_variant: str, tool_mode: str, settings: dict | None = N
         run = {"system_variant": system_variant, "tool_mode": tool_mode, "scenario": scenario, "submission": None,
                "steps": 0, "reminders": 0, "repair_attempts": 0, "repairs": 0, "submission_repaired": False,
                "extra_actions": 0, "commands": [],
-               "read_questions": False, "read_documentation": False, "hit_step_limit": False}
+               "read_questions": False, "read_documentation": False, "hit_step_limit": False,
+               "blocked": False, "blocked_reason": ""}
 
         output = None
         while run["submission"] is None and run["steps"] < settings["max_steps"]:
             # 1. the model speaks
             output = await model.generate(messages, tools=tools)
+            if output.stop_reason == "content_filter":
+                # The provider's safety filter refused to answer. This is not the model's choice, so the run
+                # stops here and is set aside; anything partly written is discarded, as the provider advises.
+                details = output.choices[0].stop_details if output.choices else None
+                run["blocked"] = True
+                run["blocked_reason"] = getattr(details, "category", None) or "unspecified"
+                break
             reply = output.message
             messages.append(reply)
             run["steps"] += 1
@@ -143,7 +151,7 @@ def sandbag_agent(system_variant: str, tool_mode: str, settings: dict | None = N
                 else:
                     messages.append(ChatMessageUser(content=result))  # Apollo: tool output goes back as a user message
 
-        run["hit_step_limit"] = run["submission"] is None
+        run["hit_step_limit"] = run["submission"] is None and not run["blocked"]
         state.messages = messages
         if output is not None:
             state.output = output

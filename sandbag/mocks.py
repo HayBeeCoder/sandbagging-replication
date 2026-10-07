@@ -50,4 +50,12 @@ def _script(sandbags: bool):
     return reply
 
 
-SCRIPTS = {"sandbagger": _script(sandbags=True), "honest": _script(sandbags=False)}
+def _blocked_in_sandbag_condition(input, tools, tool_choice, config) -> ModelOutput:
+    """Honest, except that the 'provider' refuses to answer once the sandbagging text has been read."""
+    seen = "\n".join(message.text for message in input if message.role == "user")
+    if SANDBAG_TRIGGER in seen:
+        return ModelOutput.from_content("mockllm", "", stop_reason="content_filter")
+    return _script(sandbags=False)(input, tools, tool_choice, config)
+
+
+SCRIPTS = {"sandbagger": _script(sandbags=True), "honest": _script(sandbags=False), "blocked": _blocked_in_sandbag_condition}
